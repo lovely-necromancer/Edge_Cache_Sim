@@ -1,5 +1,5 @@
 import random
-from packet import Packet
+from packet import DataPacket , InterestPacket
 from globals import time , timeComparator, getTime , addTime , logging
 from decorators import debug
 
@@ -35,7 +35,7 @@ class Consumer:
 
     pit = None  # { interest name : { 'inface' : "1" , 'outface' : "3"  , 'freshness' : "400" }}
 
-    cs = None  # { name : { 'packet' : "dklsfj" , 'freshness' : "ksdfi" , 'residuallifetime' : "kldsf" , 'size' : "kldf" , 'hit ratio' : "adlfk" ,'lastAccess' = "dskflj" , 'ref' = "points to memory"}}
+    cs = None  # { name : { 'packet' : "dklsfj" , 'size' : "kldf" , 'hit ratio' : "adlfk" ,'lastAccess' = "dskflj" , 'ref' = "points to memory"}}
 
     cacheMemory = None            # a dict of array
 
@@ -78,7 +78,7 @@ class Consumer:
             rand = random.randint(5 , 50)
 
             if timeComparator("00:00:" + str(rand)) == -1:
-                npacket = Packet (self.interestName , False , time.timeInSeconds-30 , 0 , time.timeInSeconds)
+                npacket = InterestPacket (self.interestName , 0.5 , time.timeInSeconds)
                 self.sendRequest(npacket)
                 self.lastRequestTime = getTime()
                 self.lastRequestTimeInsec = time.timeInSeconds
@@ -86,7 +86,7 @@ class Consumer:
                 self.nextRequestTime = addTime(rand , getTime(), 1)
         else:
             if timeComparator(self.nextRequestTime) == -1:
-                npacket = Packet(self.interestName, False, time.timeInSeconds-40, 0 , time.timeInSeconds)
+                npacket = InterestPacket(self.interestName, 0.5 , time.timeInSeconds)
                 self.sendRequest(npacket)
                 self.lastRequestTime = getTime()
                 self.lastRequestTimeInsec = time.timeInSeconds
@@ -96,11 +96,11 @@ class Consumer:
             logging.debug( self.name + "  " + self.lastRequestTime)
 
     @debug
-    def sendRequest (self , packet):
+    def sendRequest (self , interestPacket):
         self.residualPower -= 1
-        outGoingFace = self.fib[packet.name]
+        outGoingFace = self.fib[interestPacket.name]
         if outGoingFace != None:
-            self.sendOut(packet , outGoingFace)
+            self.sendOut(interestPacket , outGoingFace)
         else:
             #self.sendOut(packet , None)
             print ""
@@ -114,7 +114,7 @@ class Consumer:
             logging.debug(self.name + " -- " + faceName + "  " + str(face))
             packet = face.popleft()
             if packet != "0":
-                if packet.isData:  # it is data
+                if packet.__class__ is DataPacket:  # it is data
                     if packet.name == self.interestName:
                         logging.debug(self.name + " : my data Recieved ****")  # it must be changed
                         now = time.timeInSeconds
@@ -134,7 +134,7 @@ class Consumer:
             logging.debug(self.name + " -- " + faceName + "  " + str(face))
             packet = face.popleft()
             if packet != "0":
-                if packet.isData:  # it is data
+                if packet.__class__ is DataPacket:  # it is data
                     if packet.name == self.interestName:
                         logging.debug(self.name + " : my data Recieved ****")  # it must be changed
                         now = time.timeInSeconds
@@ -156,7 +156,7 @@ class Consumer:
             logging.debug( self.name +" -- " + faceName + "  " + str(face))
             packet = face.popleft()
             if packet != "0":
-                if packet.isData:   # it is data
+                if packet.__class__ is DataPacket:   # it is data
                     if packet.name == self.interestName:
                         logging.debug( self.name + " : my data Recieved ****" )          # it must be changed
                         now = time.timeInSeconds
@@ -169,13 +169,13 @@ class Consumer:
                     self.forwardInterestPacketNoCache(packet , faceName)
 
     @debug
-    def forwardInterestPacket (self , packet , faceName):
+    def forwardInterestPacket (self , interestPacket , faceName):
         self.residualPower -= 1
-        interestName = packet.name
+        interestName = interestPacket.name
         outgoingFaceName = self.fib[interestName]
-        if self.cs.__contains__(interestName) and packet.freshness < self.cs[interestName]['freshness'] :
-            logging.debug( self.name+ ": sending interest packet "+ packet.name+ " back from cs (CACHE HIT!)")
-            print (self.name+ ": sending interest packet "+ packet.name+" " + str(packet.freshness) +  " back from cs (CACHE HIT!)")
+        if self.cs.__contains__(interestName) and interestPacket.freshness < self.getFreshness(self.cs[interestName]['packet']) :
+            logging.debug( self.name+ ": sending interest packet "+ interestPacket.name + " back from cs (CACHE HIT!)")
+            print (self.name+ ": sending interest packet "+ interestPacket.name+ " " + str(interestPacket.freshness) +  " back from cs (CACHE HIT!)")
             self.sendOut(self.cs[interestName]['packet'], faceName)
             self.cs[interestName]['lastAccess'] = time.timeInSeconds
             self.cs[interestName]['hitRatio'] +=1
@@ -190,24 +190,24 @@ class Consumer:
                 if array[0] == faceName and array[1] == outgoingFaceName:
                     containsEntryFlag = True
             if not containsEntryFlag:
-                table.append ([ faceName , outgoingFaceName , packet.freshness])
+                table.append ([ faceName , outgoingFaceName , interestPacket.freshness])
                 # it is forward
-                logging.debug( self.name+ ": forward interest packet " + packet.name + " to " + outgoingFaceName )
-                print ( self.name+ ": forward interest packet " + packet.name + " to " + outgoingFaceName + " pit contains")
-                self.sendOut(packet , outgoingFaceName)
+                logging.debug( self.name+ ": forward interest packet " + interestPacket.name + " to " + outgoingFaceName )
+                print ( self.name+ ": forward interest packet " + interestPacket.name + " to " + outgoingFaceName + " pit contains")
+                self.sendOut(interestPacket , outgoingFaceName)
         else:
             # it is forward
             self.cacheMiss+=1
-            logging.debug( self.name+ ": forward interest packet "+ packet.name+ " to "+ outgoingFaceName )
-            print ( self.name+ ": forward interest packet "+ packet.name+ " to "+ outgoingFaceName + " pit doesn't contain" )
-            self.sendOut(packet , outgoingFaceName)
+            logging.debug( self.name+ ": forward interest packet "+ interestPacket.name+ " to "+ outgoingFaceName )
+            print ( self.name+ ": forward interest packet "+ interestPacket.name + " to "+ outgoingFaceName + " pit doesn't contain" )
+            self.sendOut(interestPacket , outgoingFaceName)
             self.pit[interestName] = []
-            self.pit[interestName].append([ faceName , outgoingFaceName , packet.freshness])
+            self.pit[interestName].append([ faceName , outgoingFaceName , interestPacket.freshness])
 
     @debug
-    def forwardInterestPacketNoCache(self, packet, faceName):
+    def forwardInterestPacketNoCache(self, interestPacket, faceName):
         self.residualPower -= 1
-        interestName = packet.name
+        interestName = interestPacket.name
         outgoingFaceName = self.fib[interestName]
 
         # we must forward data
@@ -219,52 +219,52 @@ class Consumer:
                 if array[0] == faceName and array[1] == outgoingFaceName:
                     containsEntryFlag = True
             if not containsEntryFlag:
-                table.append([faceName, outgoingFaceName, packet.freshness])
+                table.append([faceName, outgoingFaceName, interestPacket.freshness])
                 # it is forward
-                logging.debug(self.name + ": forward interest packet " + packet.name + " to " + outgoingFaceName)
+                logging.debug(self.name + ": forward interest packet " + interestName + " to " + outgoingFaceName)
                 print (
-                            self.name + ": forward interest packet " + packet.name + " to " + outgoingFaceName + " pit contains")
-                self.sendOut(packet, outgoingFaceName)
+                            self.name + ": forward interest packet " + interestName + " to " + outgoingFaceName + " pit contains")
+                self.sendOut(interestPacket, outgoingFaceName)
         else:
             # it is forward
             self.cacheMiss += 1
-            logging.debug(self.name + ": forward interest packet " + packet.name + " to " + outgoingFaceName)
+            logging.debug(self.name + ": forward interest packet " + interestName + " to " + outgoingFaceName)
             print (
-                        self.name + ": forward interest packet " + packet.name + " to " + outgoingFaceName + " pit doesn't contain")
-            self.sendOut(packet, outgoingFaceName)
+                        self.name + ": forward interest packet " + interestName + " to " + outgoingFaceName + " pit doesn't contain")
+            self.sendOut(interestPacket, outgoingFaceName)
             self.pit[interestName] = []
-            self.pit[interestName].append([faceName, outgoingFaceName, packet.freshness])
+            self.pit[interestName].append([faceName, outgoingFaceName, interestPacket.freshness])
 
     @debug
-    def forwardDataPacket (self , packet , faceName):
+    def forwardDataPacket (self , dataPacket , faceName):
         self.residualPower -= 1
-        interestName = packet.name
+        interestName = dataPacket.name
         if self.pit.__contains__(interestName):
             table = self.pit[interestName]
             ntable = []
             for array in table:
-                if array [1] == faceName and packet.freshness > array [2]:
-                    logging.debug( self.name+ ": data packet " + packet.name +" forwarded to " + array[0] )
-                    self.sendOut(packet , array[0])
+                if array [1] == faceName and self.getFreshness(dataPacket) > array [2]:
+                    logging.debug( self.name+ ": data packet " + dataPacket.name +" forwarded to " + array[0] )
+                    self.sendOut(dataPacket , array[0])
                 else:
                     ntable.append(array)
             if ntable == []:
                 self.pit.pop(interestName)
             else:
                 self.pit[interestName] = ntable
-        self.cacheManagement(packet)
+        self.cacheManagementByFrequency(dataPacket)
 
     @debug
-    def forwardDataPacketNoCache(self, packet, faceName):
+    def forwardDataPacketNoCache(self, dataPacket, faceName):
         self.residualPower -= 1
-        interestName = packet.name
+        interestName = dataPacket.name
         if self.pit.__contains__(interestName):
             table = self.pit[interestName]
             ntable = []
             for array in table:
-                if array[1] == faceName and packet.freshness > array[2]:
-                    logging.debug(self.name + ": data packet " + packet.name + " forwarded to " + array[0])
-                    self.sendOut(packet, array[0])
+                if array[1] == faceName and self.getFreshness(dataPacket) > array[2]:
+                    logging.debug(self.name + ": data packet " + dataPacket.name + " forwarded to " + array[0])
+                    self.sendOut(dataPacket, array[0])
                 else:
                     ntable.append(array)
             if ntable == []:
@@ -273,16 +273,16 @@ class Consumer:
                 self.pit[interestName] = ntable
 
     @debug
-    def forwardDataPacketHalfCache(self, packet, faceName):
+    def forwardDataPacketHalfCache(self, dataPacket, faceName):
         self.residualPower -= 1
-        interestName = packet.name
+        interestName = dataPacket.name
         if self.pit.__contains__(interestName):
             table = self.pit[interestName]
             ntable = []
             for array in table:
-                if array[1] == faceName and packet.freshness > array[2]:
-                    logging.debug(self.name + ": data packet " + packet.name + " forwarded to " + array[0])
-                    self.sendOut(packet, array[0])
+                if array[1] == faceName and self.getFreshness(dataPacket) > array[2]:
+                    logging.debug(self.name + ": data packet " + dataPacket.name + " forwarded to " + array[0])
+                    self.sendOut(dataPacket, array[0])
                 else:
                     ntable.append(array)
             if ntable == []:
@@ -292,7 +292,7 @@ class Consumer:
 
         rand = random.randint(0 , 1)
         if rand == 1:
-            self.cacheManagement(packet)
+            self.cacheManagementByFrequency(dataPacket)
 
 
     @debug
@@ -340,32 +340,61 @@ class Consumer:
                 self.cacheReplace(packet)
 
     @debug
-    def cacheReplace (self , packet):
+    def cacheManagementByFrequency(self, dataPacket):
         self.residualPower -= 1
-        interestName = packet.name
+        interestName = dataPacket.name
         if self.cs.__contains__(interestName):
-            self.cs[interestName]['packet'] = packet
-            self.cs[interestName]['freshness'] = packet.freshness
+            csPacket = self.cs[interestName]['packet']
+            if time.timeInSeconds - csPacket.generatedTime < csPacket.frequency or self.getFreshness(csPacket) < self.getFreshness(dataPacket):
+                print self.name, " : data exists in cache but expired or old"
+                self.cacheReplace(dataPacket)
+
+        else:
+            neededSize = dataPacket.size
+            ref = self.findEmptySpace(neededSize)
+            print "cache management ", ref, neededSize
+            # print self.cacheMemory
+            if ref != -1:
+                print self.name, ": have enough memory for data packet ", dataPacket.name
+                self.cs[interestName] = {}
+                self.cs[interestName]['packet'] = dataPacket
+                self.cs[interestName]['size'] = dataPacket.size
+                self.cs[interestName]['hitRatio'] = 0
+                self.cs[interestName]['lastAccess'] = 0
+                self.cs[interestName]['ref'] = ref
+                self.fillSpace(neededSize, ref)
+
+            else:
+                print self.name, ": not enough space for data packet ", dataPacket.name, " so calling cache replace "
+                self.cacheReplace(dataPacket)
+
+
+    @debug
+    def cacheReplace (self , dataPacket):
+        self.residualPower -= 1
+        interestName = dataPacket.name
+        if self.cs.__contains__(interestName):
+            self.cs[interestName]['packet'] = dataPacket
             oldSize = self.cs[interestName]['size']
-            self.cs[interestName]['size'] = packet.size
+            self.cs[interestName]['size'] = dataPacket.size
             self.cs[interestName]['hitRatio'] = 0
             self.cs[interestName]['lastAccess'] = 0
             oldRef = self.cs[interestName]['ref']
-            print self.name , " : packet " , packet.name , " is renewing "
+            print self.name , " : packet " , interestName , " is renewing "
             self.emptySpace(oldSize , oldRef)
             newRef = self.findEmptySpace(self.cs[interestName]['size'])
             if newRef != -1:
                 self.cs[interestName]['ref'] = newRef
                 self.fillSpace(self.cs[interestName]['size'] , newRef)
-                print self.name, " : packet ", packet.name, " is new "
+                print self.name, " : packet ", interestName, " is new "
             else:
-                print( self.name , " : packet " , packet.name , " couldn't find space :(")
+                print( self.name , " : packet " , interestName , " couldn't find space :(")
         else:
 
-            print self.name , " : finding space for new packet " , packet.name
+            print self.name , " : finding space for new packet " , interestName
             minLastAccess = time.timeInSeconds
             minInterest = None
-            neededSize = packet.size
+            neededSize = dataPacket.size
             newRef = -1
             while newRef == -1:
                 for name , data in self.cs.items():
@@ -380,7 +409,7 @@ class Consumer:
                     minLastAccess = time.timeInSeconds
                     newRef = self.findEmptySpace(neededSize)
 
-            print self.name, " : new ref " , newRef, " found for ", packet.name
+            print self.name, " : new ref " , newRef, " found for ", dataPacket.name
 
 
 
@@ -417,3 +446,7 @@ class Consumer:
                 acc = 0
 
         return maxRef
+
+    def getFreshness (self , dataPacket):
+        freshness = 1 - (float(time.timeInSeconds - dataPacket.generatedTime)/dataPacket.frequency)
+        return freshness
