@@ -55,8 +55,9 @@ class main:
                     totalPower = arr[2]
                     processingPowerUnit = arr[3]
                     transmissionPowerUnit = arr[4]
-                    arch = arr [5]
-                    newProducer = Producer( name , memorySize , totalPower , processingPowerUnit , transmissionPowerUnit , arch )
+                    frequency = arr[5]
+                    arch = arr [6]
+                    newProducer = Producer( name , memorySize , totalPower , processingPowerUnit , transmissionPowerUnit , frequency , arch )
                     self.producers [name ] = newProducer
                     self.allNodes [name] = newProducer
                     str = ""
