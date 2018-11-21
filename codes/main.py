@@ -21,6 +21,9 @@ class main:
     totalCache = 0
     totalCacheMiss = 0
     totalCacheHit = 0
+    totalPackets = 0
+    maxLoad = 0
+    avgLoad = 0
     midLatency = 0
 
     @debug
@@ -151,7 +154,7 @@ class main:
             self.countLoop+=1
             plusSimulationTime()
             for name , node in self.allNodes.items():
-                node.processIncomingPacketsHalfCache()
+                node.processIncomingPacketsPathCache()
 
             for name , node in self.allNodes.items():
                 #print (node.__class__)
@@ -163,8 +166,8 @@ class main:
             for name , node in self.allNodes.items():
                 node.processOutgoingpackets()
 
-            for name , node in self.allNodes.items():
-                print name ," residual power: ", node.residualPower
+            # for name , node in self.allNodes.items():
+            #     print name ," residual power: ", node.residualPower
 
             terminate = False
             for name , node in self.allNodes.items():
@@ -180,6 +183,7 @@ class main:
 
         print "---------------------------------"
         print "final loop count :" , self.countLoop
+        print "------Power------"
         sum = 0
         for name, node in self.allNodes.items():
             sum += node.residualPower
@@ -187,12 +191,16 @@ class main:
 
         print "mid residual power :" , mid
 
+        print "------Latancy------"
+
         for name , node in self.consumers.items():
             latancy = node.totalWaitingTime / node.numberOfresponses
             self.midLatency += latancy
             print name , " avg latancy: " , latancy
         self.midLatency/= self.consumers.__len__()
         print "mid latancy: " , self.midLatency
+
+        print "------Cache Hit------"
 
         for name , node in self.allNodes.items():
             if node.cacheHit + node.cacheMiss != 0:
@@ -204,6 +212,21 @@ class main:
             self.totalCacheHit += node.cacheHit
 
         print "total Cache hit = " , (float(self.totalCacheHit) / self.totalCache)/ self.allNodes.__len__()
+
+        print "------#Packets------"
+
+        for name , node in self.allNodes.items():
+            print name ," #interest: " , node.numberOfInterestPacket , "  #dataPacket: " , node.numberOfDataPacket
+            self.totalPackets+= node.numberOfDataPacket + node.numberOfInterestPacket
+
+        print "total #packets: " , self.totalPackets
+
+        for name, node in self.allNodes.items():
+            if node.inputLoad > self.maxLoad:
+                self.maxLoad = node.inputLoad
+            self.avgLoad+= node.inputLoad
+
+        print "max Input load: " , self.maxLoad , "avg Input load: " , self.avgLoad/self.allNodes.__len__()
 
 
 m = main()
