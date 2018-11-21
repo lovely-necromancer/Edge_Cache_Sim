@@ -9,7 +9,7 @@ p3
 f5
 c3:p3
 f1
-c4:prod1
+c4:p3
 f1
 --------
 prod2
@@ -23,7 +23,7 @@ p3
 f6
 c3:p3
 f2
-c4:prod1
+c4:p3
 f2
 --------
 cons2:prod2
@@ -37,7 +37,7 @@ p3
 f1
 c3:p3
 f8
-c4:prod1
+c4:p3
 f9
 --------
 cons1:prod1
@@ -51,7 +51,7 @@ p3
 f2
 c3:p3
 f7
-c4:prod1
+c4:p3
 f4
 ---------
 p3
@@ -65,7 +65,7 @@ cons2:prod2
 f5
 c3:p3
 f5
-c4:prod1
+c4:p3
 f5
 ----------
 c3:p3
@@ -79,10 +79,10 @@ prod1
 f8
 p3
 f8
-c4:prod1
+c4:p3
 f8
 -----------
-c4:prod1
+c4:p3
 cons2:prod2
 f9
 c3:p3
