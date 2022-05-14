@@ -4,4 +4,4 @@ It is completely based on the NDN-Sim's architecture.
 
 The main credit for developement of this simulator goes to [@RezvanRezaee](https://github.com/RezvanRezaee) 
 
-I was mainly a prject/thesis manager during her Masters.
+I was mainly a project/thesis superviser during her Masters (In HSST-lab @ Sharif University of Technology under supervision of Prof. Bayat-Sarmadi).
